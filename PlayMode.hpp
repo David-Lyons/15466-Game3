@@ -17,13 +17,10 @@ struct PlayMode : Mode {
 	virtual void update(float elapsed) override;
 	virtual void draw(glm::uvec2 const &drawable_size) override;
 
-	//----- game state -----
+	// Helper functions
+	void next_round();
 
-	//input tracking:
-	struct Button {
-		uint8_t downs = 0;
-		uint8_t pressed = 0;
-	} left, right, down, up;
+	//----- game state -----
 
 	//local copy of the game scene (so code can change it during gameplay):
 	Scene scene;
@@ -32,15 +29,30 @@ struct PlayMode : Mode {
 	Scene::Transform *hip = nullptr;
 	Scene::Transform *upper_leg = nullptr;
 	Scene::Transform *lower_leg = nullptr;
-	glm::quat hip_base_rotation;
-	glm::quat upper_leg_base_rotation;
-	glm::quat lower_leg_base_rotation;
-	float wobble = 0.0f;
 
-	glm::vec3 get_leg_tip_position();
+	enum Status {
+		NOTHING,
+		CORRECT,
+		INCORRECT
+	} game_status;
 
-	//music coming from the tip of the leg (as a demonstration):
-	std::shared_ptr< Sound::PlayingSample > leg_tip_loop;
+	enum Guess {
+		LEFT,
+		RIGHT,
+		CENTER,
+		NONE
+	} current_guess;
+
+	int round_number;
+	int num_correct;
+	float round_timer;
+	bool made_guess;
+	bool end_game;
+
+	// My audio
+	std::vector<Sound::Sample> rounds;
+	std::vector<Guess> answers;
+	std::shared_ptr<Sound::PlayingSample> current_sound;
 	
 	//camera:
 	Scene::Camera *camera = nullptr;
