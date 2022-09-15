@@ -25,10 +25,21 @@ struct PlayMode : Mode {
 	//local copy of the game scene (so code can change it during gameplay):
 	Scene scene;
 
-	//hexapod leg to wobble:
-	Scene::Transform *hip = nullptr;
-	Scene::Transform *upper_leg = nullptr;
-	Scene::Transform *lower_leg = nullptr;
+	// Jump animations
+	Scene::Transform *left_transform = nullptr;
+	Scene::Transform *right_transform = nullptr;
+	Scene::Transform *center_transform = nullptr;
+	float left_origin;
+	float right_origin;
+	float center_origin;
+	float right_velocity = 0.0f;
+	float left_velocity = 0.0f;
+	float center_velocity = 0.0f;
+	float acceleration = 10.0f;
+	bool left_jump = false;
+	bool right_jump = false;
+	bool center_jump = false;
+	bool jump_in_progress = false;
 
 	enum Status {
 		NOTHING,
@@ -48,6 +59,7 @@ struct PlayMode : Mode {
 	float round_timer;
 	bool made_guess;
 	bool end_game;
+	float total_time = 0;
 
 	// My audio
 	std::vector<Sound::Sample> rounds;

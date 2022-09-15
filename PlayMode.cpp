@@ -12,15 +12,15 @@
 
 #include <random>
 
-GLuint hexapod_meshes_for_lit_color_texture_program = 0;
+GLuint movie_meshes_for_lit_color_texture_program = 0;
 Load< MeshBuffer > hexapod_meshes(LoadTagDefault, []() -> MeshBuffer const * {
-	MeshBuffer const *ret = new MeshBuffer(data_path("hexapod.pnct"));
-	hexapod_meshes_for_lit_color_texture_program = ret->make_vao_for_program(lit_color_texture_program->program);
+	MeshBuffer const *ret = new MeshBuffer(data_path("movie.pnct"));
+	movie_meshes_for_lit_color_texture_program = ret->make_vao_for_program(lit_color_texture_program->program);
 	return ret;
 });
 
-Load< Scene > hexapod_scene(LoadTagDefault, []() -> Scene const * {
-	return new Scene(data_path("hexapod.scene"), [&](Scene &scene, Scene::Transform *transform, std::string const &mesh_name){
+Load< Scene > movie_scene(LoadTagDefault, []() -> Scene const * {
+	return new Scene(data_path("movie.scene"), [&](Scene &scene, Scene::Transform *transform, std::string const &mesh_name){
 		Mesh const &mesh = hexapod_meshes->lookup(mesh_name);
 
 		scene.drawables.emplace_back(transform);
@@ -28,7 +28,7 @@ Load< Scene > hexapod_scene(LoadTagDefault, []() -> Scene const * {
 
 		drawable.pipeline = lit_color_texture_program_pipeline;
 
-		drawable.pipeline.vao = hexapod_meshes_for_lit_color_texture_program;
+		drawable.pipeline.vao = movie_meshes_for_lit_color_texture_program;
 		drawable.pipeline.type = mesh.type;
 		drawable.pipeline.start = mesh.start;
 		drawable.pipeline.count = mesh.count;
@@ -36,16 +36,17 @@ Load< Scene > hexapod_scene(LoadTagDefault, []() -> Scene const * {
 	});
 });
 
-PlayMode::PlayMode() : scene(*hexapod_scene) {
+PlayMode::PlayMode() : scene(*movie_scene) {
 	//get pointers to leg for convenience:
 	for (auto &transform : scene.transforms) {
-		if (transform.name == "Hip.FL") hip = &transform;
-		else if (transform.name == "UpperLeg.FL") upper_leg = &transform;
-		else if (transform.name == "LowerLeg.FL") lower_leg = &transform;
+		if (transform.name == "Left") left_transform = &transform;
+		else if (transform.name == "Right") right_transform = &transform;
+		else if (transform.name == "Center") center_transform = &transform;
 	}
-	if (hip == nullptr) throw std::runtime_error("Hip not found.");
-	if (upper_leg == nullptr) throw std::runtime_error("Upper leg not found.");
-	if (lower_leg == nullptr) throw std::runtime_error("Lower leg not found.");
+
+	left_origin = left_transform->position.z;
+	right_origin = right_transform->position.z;
+	center_origin = center_transform->position.z;
 
 	//get pointer to camera for convenience:
 	if (scene.cameras.size() != 1) throw std::runtime_error("Expecting scene to have exactly one camera, but it has " + std::to_string(scene.cameras.size()));
@@ -87,31 +88,43 @@ void PlayMode::next_round() {
 	}
 	current_guess = Guess::NONE;
 	round_number++;
+	made_guess = false;
+	if (round_number == 10) {
+		return;
+	}
 	current_sound = Sound::play(rounds[round_number]);
 	round_timer = 30.0f;
-	made_guess = false;
 }
 
 bool PlayMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size) {
-	if (end_game || made_guess) {
+	if (end_game || jump_in_progress || made_guess) {
 		return false;
 	}
 	if (evt.type == SDL_KEYDOWN) {
 		if (evt.key.keysym.sym == SDLK_LEFT) {
 			made_guess = true;
 			current_guess = Guess::LEFT;
+			left_jump = true;
+			jump_in_progress = true;
+			left_velocity = 5.0f;
 			printf("You guessed left.\n");
 			printf("The answer is %d.\n", answers[round_number]);
 			return true;
 		} else if (evt.key.keysym.sym == SDLK_RIGHT) {
 			made_guess = true;
 			current_guess = Guess::RIGHT;
+			right_jump = true;
+			jump_in_progress = true;
+			right_velocity = 5.0f;
 			printf("You guessed right.\n");
 			printf("The answer is %d.\n", answers[round_number]);
 			return true;
 		} else if (evt.key.keysym.sym == SDLK_UP || evt.key.keysym.sym == SDLK_DOWN) {
 			made_guess = true;
 			current_guess = Guess::CENTER;
+			center_jump = true;
+			jump_in_progress = true;
+			center_velocity = 5.0f;
 			printf("You guessed center.\n");
 			printf("The answer is %d.\n", answers[round_number]);
 			return true;
@@ -121,29 +134,61 @@ bool PlayMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
 }
 
 void PlayMode::update(float elapsed) {
+	// Alter the positions based on velocity
+	if (jump_in_progress) {
+		if (left_jump) {
+			left_transform->position.z += left_velocity * elapsed;
+			if (left_transform->position.z < left_origin) {
+				left_transform->position.z = left_origin;
+				left_jump = false;
+				jump_in_progress = false;
+				left_velocity = 0.0f;
+			} else {
+				left_velocity -= acceleration * elapsed;
+			}
+		} else if (right_jump) {
+			right_transform->position.z += right_velocity * elapsed;
+			if (right_transform->position.z < right_origin) {
+				right_transform->position.z = right_origin;
+				right_jump = false;
+				jump_in_progress = false;
+				right_velocity = 0.0f;
+			} else {
+				right_velocity -= acceleration * elapsed;
+			}
+		} else if (center_jump) {
+			center_transform->position.z += center_velocity * elapsed;
+			if (center_transform->position.z < center_origin) {
+				center_transform->position.z = center_origin;
+				center_jump = false;
+				jump_in_progress = false;
+				center_velocity = 0.0f;
+			} else {
+				center_velocity -= acceleration * elapsed;
+			}
+		}
+	}
 	if (end_game) {
 		return;
 	}
+	total_time += elapsed;
 
 	// Decrease the round timer, and go to the next round if this one is over
 	if (made_guess) {
-		current_sound->stop();			
-		if (round_number == 9) {
+		current_sound->stop();	
+		next_round();
+		if (round_number == 10) {
 			end_game = true;
-		} else {
-			next_round();
 		}
 	} else {
 		round_timer -= elapsed;
 		if (round_timer <= 0.0f) {
-			if (round_number == 9) {
+			next_round();
+			if (round_number == 10) {
 				end_game = true;
-			} else {
-				next_round();
 			}
 		}
 	}
-
 }
 
 void PlayMode::draw(glm::uvec2 const &drawable_size) {
@@ -201,6 +246,10 @@ void PlayMode::draw(glm::uvec2 const &drawable_size) {
 			glm::u8vec4(0xff, 0xff, 0xff, 0x00));
 		if (end_game) {
 			lines.draw_text("That was the last one!",
+				glm::vec3(-aspect + 0.1f * H + 1200.0f / drawable_size.y, -1.0 + +0.1f * H + 1200.0f / drawable_size.y, 0.0),
+				glm::vec3(H, 0.0f, 0.0f), glm::vec3(0.0f, H, 0.0f),
+				glm::u8vec4(0xff, 0xff, 0xff, 0x00));
+			lines.draw_text("You spent " + std::to_string((int)(total_time)) + " seconds.",
 				glm::vec3(-aspect + 0.1f * H + 1200.0f / drawable_size.y, -1.0 + +0.1f * H + 1000.0f / drawable_size.y, 0.0),
 				glm::vec3(H, 0.0f, 0.0f), glm::vec3(0.0f, H, 0.0f),
 				glm::u8vec4(0xff, 0xff, 0xff, 0x00));
