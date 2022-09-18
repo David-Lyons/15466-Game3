@@ -53,18 +53,18 @@ PlayMode::PlayMode() : scene(*movie_scene) {
 	camera = &scene.cameras.front();
 
 	for (int i = 0; i < 10; i++) {
-		rounds.push_back(Sound::Sample(data_path("Test Sound.wav")));
+		rounds.push_back(Sound::Sample(data_path("mystery" + std::to_string(i + 1) + ".wav")));
 	}
+	answers.push_back(Guess::RIGHT);
 	answers.push_back(Guess::LEFT);
+	answers.push_back(Guess::RIGHT);
+	answers.push_back(Guess::RIGHT);
+	answers.push_back(Guess::LEFT);
+	answers.push_back(Guess::CENTER);
 	answers.push_back(Guess::RIGHT);
 	answers.push_back(Guess::CENTER);
 	answers.push_back(Guess::LEFT);
 	answers.push_back(Guess::RIGHT);
-	answers.push_back(Guess::CENTER);
-	answers.push_back(Guess::LEFT);
-	answers.push_back(Guess::RIGHT);
-	answers.push_back(Guess::CENTER);
-	answers.push_back(Guess::CENTER);
 
 	round_number = 0;
 	num_correct = 0; 
@@ -251,6 +251,11 @@ void PlayMode::draw(glm::uvec2 const &drawable_size) {
 				glm::u8vec4(0xff, 0xff, 0xff, 0x00));
 			lines.draw_text("You spent " + std::to_string((int)(total_time)) + " seconds.",
 				glm::vec3(-aspect + 0.1f * H + 1200.0f / drawable_size.y, -1.0 + +0.1f * H + 1000.0f / drawable_size.y, 0.0),
+				glm::vec3(H, 0.0f, 0.0f), glm::vec3(0.0f, H, 0.0f),
+				glm::u8vec4(0xff, 0xff, 0xff, 0x00));
+		} else {
+			lines.draw_text("Round: " + std::to_string(round_number + 1),
+				glm::vec3(-aspect + 0.1f * H + 1800.0f / drawable_size.y, -1.0 + +0.1f * H + 1200.0f / drawable_size.y, 0.0),
 				glm::vec3(H, 0.0f, 0.0f), glm::vec3(0.0f, H, 0.0f),
 				glm::u8vec4(0xff, 0xff, 0xff, 0x00));
 		}
