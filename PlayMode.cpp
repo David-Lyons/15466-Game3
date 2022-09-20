@@ -53,7 +53,7 @@ PlayMode::PlayMode() : scene(*movie_scene) {
 	camera = &scene.cameras.front();
 
 	for (int i = 0; i < 10; i++) {
-		rounds.push_back(Sound::Sample(data_path("mystery" + std::to_string(i + 1) + ".wav")));
+		rounds.push_back(Sound::Sample(data_path("mystery" + std::to_string(i + 1) + ".opus")));
 	}
 	answers.push_back(Guess::RIGHT);
 	answers.push_back(Guess::LEFT);
